@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual envs
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints
+*-checkpoint.ipynb
+
+# Kaggle / training artifacts
+checkpoints/
+wandb/
+runs/
+outputs/
+.cache/
+*.safetensors
+*.bin
+*.gguf
+
+# Eval outputs (we re-generate from the model card; raw dumps are not committed)
+eval_results.json
+eval_results_full.json
+
+# Local secrets / tokens
+.env.local
+*.pem
+*.key
+hf_token.txt
+
+# OS
+Thumbs.db
+desktop.ini
+
+# Claude Code session data (skills cache, etc.)
+.claude/
