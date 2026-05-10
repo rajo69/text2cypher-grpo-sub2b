@@ -69,3 +69,9 @@ desktop.ini
 
 # Claude Code session data (skills cache, etc.)
 .claude/
+
+# Playwright local cache
+.playwright/
+
+# Local-only working notes (kept on disk, not pushed)
+plan.md
