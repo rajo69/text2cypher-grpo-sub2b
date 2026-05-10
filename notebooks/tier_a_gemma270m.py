@@ -70,7 +70,7 @@ print("HF user:", HF_USERNAME)
 # Locally for iteration, just `pip install -e .` from the project root.
 
 # If not yet on this Kaggle session, clone the repo:
-# !git clone https://github.com/<YOUR_USERNAME>/text2cypher-grpo /kaggle/working/text2cypher-grpo
+# !git clone https://github.com/rajo69/text2cypher-grpo /kaggle/working/text2cypher-grpo
 
 # %%
 import glob
@@ -91,7 +91,7 @@ matches = [os.path.dirname(m) for m in matches if os.path.isdir(m)]
 if not matches:
     raise RuntimeError(
         "text2cypher_grpo/ not found. Either:\n"
-        "  (a) !git clone https://github.com/<YOUR_USERNAME>/text2cypher-grpo /kaggle/working/text2cypher-grpo\n"
+        "  (a) !git clone https://github.com/rajo69/text2cypher-grpo-sub2b /kaggle/working/text2cypher-grpo\n"
         "  (b) upload the folder as a Kaggle Dataset and add it to your notebook's inputs"
     )
 pkg_root = matches[0]
