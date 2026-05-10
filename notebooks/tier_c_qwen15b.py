@@ -61,7 +61,7 @@ print("HF user:", HF_USERNAME)
 # ## 3. Bootstrap shared package
 
 # If not yet on this Kaggle session, clone the repo:
-# !git clone https://github.com/<YOUR_USERNAME>/text2cypher-grpo /kaggle/working/text2cypher-grpo
+# !git clone https://github.com/rajo69/text2cypher-grpo /kaggle/working/text2cypher-grpo
 
 # %%
 import glob
