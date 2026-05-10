@@ -102,6 +102,22 @@ _REL_RE = re.compile(
     r"\(\s*:?\s*([A-Za-z_][A-Za-z0-9_]*)?\s*\)\s*-\s*\[\s*:?\s*([A-Za-z_][A-Za-z0-9_]*)\s*\]\s*-\s*>?\s*\(\s*:?\s*([A-Za-z_][A-Za-z0-9_]*)?\s*\)"
 )
 
+# Format C: Cypher-pattern style without markdown formatting
+#   Author {author_id: STRING}                          ← node or rel-property block
+#   {'start': Article, 'type': PUBLISHED_IN, 'end': J}  ← rel definition
+_FMT_C_BLOCK_RE = re.compile(
+    r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\{([^}]+)\}\s*$",
+    re.MULTILINE,
+)
+_FMT_C_PROP_RE = re.compile(
+    r"([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z_]+)"
+)
+_FMT_C_REL_RE = re.compile(
+    r"\{\s*['\"]?start['\"]?\s*:\s*([A-Za-z_][A-Za-z0-9_]*)\s*,"
+    r"\s*['\"]?type['\"]?\s*:\s*([A-Za-z_][A-Za-z0-9_]*)\s*,"
+    r"\s*['\"]?end['\"]?\s*:\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}"
+)
+
 
 def _parse_markdown_format(s: str) -> _Schema:
     sch = _Schema()
@@ -138,27 +154,90 @@ def _clean_label(s: str) -> str:
     return re.sub(r"[^A-Za-z0-9_]", "_", s) or "Any"
 
 
+def _parse_format_c(s: str) -> _Schema:
+    """Format C — Cypher-pattern lines without markdown formatting.
+
+    Examples:
+        Author {author_id: STRING}
+        Topic {label: STRING}
+        {'start': Article, 'type': PUBLISHED_IN, 'end': Journal}
+        PUBLISHED_IN {pages: STRING}     ← rel-property block
+    """
+    sch = _Schema()
+    # First find rel definitions; we need them to disambiguate Label{} blocks below.
+    rel_definitions: list[tuple[str, str, str]] = []
+    for m in _FMT_C_REL_RE.finditer(s):
+        rel_type = _clean_label(m.group(2))
+        src = _clean_label(m.group(1))
+        dst = _clean_label(m.group(3))
+        rel_definitions.append((rel_type, src, dst))
+    rel_types = {rt for rt, _, _ in rel_definitions}
+    rel_props: dict[str, dict[str, str]] = {rt: {} for rt in rel_types}
+
+    for m in _FMT_C_BLOCK_RE.finditer(s):
+        label = _clean_label(m.group(1))
+        body = m.group(2)
+        props: dict[str, str] = {}
+        for pm in _FMT_C_PROP_RE.finditer(body):
+            props[pm.group(1)] = pm.group(2)
+        if not props:
+            continue
+        if label in rel_types:
+            rel_props[label].update(props)
+        else:
+            if label in sch.nodes:
+                sch.nodes[label].update(props)
+            else:
+                sch.nodes[label] = props
+
+    for rt, src, dst in rel_definitions:
+        sch.rels.append((rt, src, dst, rel_props.get(rt, {})))
+    return sch
+
+
+def _merge_into(dst: _Schema, src: _Schema) -> None:
+    for label, props in src.nodes.items():
+        if label in dst.nodes:
+            dst.nodes[label].update(props)
+        else:
+            dst.nodes[label] = dict(props)
+    seen = {(rt, s_, d_) for rt, s_, d_, _ in dst.rels}
+    for rel in src.rels:
+        if (rel[0], rel[1], rel[2]) not in seen:
+            dst.rels.append(rel)
+            seen.add((rel[0], rel[1], rel[2]))
+
+
 def schema_to_kuzu_ddl(schema_text: str) -> str:
     """Convert a `schema` column entry to executable kuzu DDL.
 
     Never raises on user data — always returns a string. If the schema is uninterpretable,
     returns minimal Any DDL so the caller can still attempt query execution against it
     (most queries will fail, which the reward function correctly grades as low quality).
+
+    Tries all three known formats (JSON / markdown-bold / Cypher-pattern Format C) and
+    merges the results — some schemas mix styles.
     """
     if not schema_text or not isinstance(schema_text, str):
         return "CREATE NODE TABLE Any(id INT64, PRIMARY KEY (id));"
-    sch: _Schema | None = None
     s = schema_text.strip()
-    # Try JSON first
+
+    sch = _Schema()
+
+    # Format B — APOC JSON
     if s.startswith("{") and s.endswith("}"):
         try:
-            sch = _parse_json_format(s)
+            _merge_into(sch, _parse_json_format(s))
         except json.JSONDecodeError:
-            sch = None
-    if sch is None or (not sch.nodes and not sch.rels):
-        sch = _parse_markdown_format(s)
+            pass
+
+    # Format A — markdown bold + backtick props
+    _merge_into(sch, _parse_markdown_format(s))
+
+    # Format C — Cypher-pattern Label {prop: TYPE} lines, plus dict-literal rel definitions
+    _merge_into(sch, _parse_format_c(s))
+
     if not sch.nodes and not sch.rels:
-        # Minimal fallback so caller has *something* to load
         return "CREATE NODE TABLE Any(id INT64, PRIMARY KEY (id));"
     return sch.to_ddl()
 
